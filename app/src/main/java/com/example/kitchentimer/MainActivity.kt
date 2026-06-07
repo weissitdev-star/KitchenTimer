@@ -26,11 +26,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun TimerScreen() {
-    // Начальное время 60 секунд
     var timeLeft by remember { mutableIntStateOf(60) }
     var isRunning by remember { mutableStateOf(false) }
+    val options = listOf(60, 300, 600) // 1, 5, 10 минут в секундах
 
-    // Логика отсчета
     LaunchedEffect(isRunning, timeLeft) {
         if (isRunning && timeLeft > 0) {
             delay(1000L)
@@ -46,12 +45,26 @@ fun TimerScreen() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (timeLeft > 0) "$timeLeft сек" else "Время вышло!",
+            text = if (timeLeft > 0) String.format("%02d:%02d", timeLeft / 60, timeLeft % 60) else "Время вышло!",
             style = MaterialTheme.typography.displayLarge
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
+        // Ряд кнопок для выбора времени
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { seconds ->
+                Button(onClick = { 
+                    timeLeft = seconds
+                    isRunning = false 
+                }) {
+                    Text("${seconds / 60} мин")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Button(onClick = { isRunning = !isRunning }) {
             Text(if (isRunning) "Пауза" else "Старт")
         }
