@@ -26,9 +26,16 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun TimerScreen() {
-    var timeLeft by remember { mutableIntStateOf(60) }
+    // Время, установленное пользователем (сохраняется между запусками)
+    var selectedTime by remember { mutableIntStateOf(60) }
+    // Время, которое меняется во время работы таймера
+    var timeLeft by remember { mutableIntStateOf(selectedTime) }
     var isRunning by remember { mutableStateOf(false) }
-    val options = listOf(60, 300, 600) // 1, 5, 10 минут в секундах
+
+    // Синхронизируем timeLeft при изменении selectedTime, если таймер не запущен
+    LaunchedEffect(selectedTime) {
+        if (!isRunning) timeLeft = selectedTime
+    }
 
     LaunchedEffect(isRunning, timeLeft) {
         if (isRunning && timeLeft > 0) {
@@ -51,21 +58,22 @@ fun TimerScreen() {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Ряд кнопок для выбора времени
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            options.forEach { seconds ->
-                Button(onClick = { 
-                    timeLeft = seconds
-                    isRunning = false 
-                }) {
-                    Text("${seconds / 60} мин")
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { if (selectedTime > 30) selectedTime -= 30 }) {
+                Text("-30с")
+            }
+            Text("${selectedTime / 60}:${(selectedTime % 60).toString().padStart(2, '0')}")
+            Button(onClick = { selectedTime += 30 }) {
+                Text("+30с")
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = { isRunning = !isRunning }) {
+        Button(onClick = { 
+            if (!isRunning && timeLeft == 0) timeLeft = selectedTime
+            isRunning = !isRunning 
+        }) {
             Text(if (isRunning) "Пауза" else "Старт")
         }
     }
