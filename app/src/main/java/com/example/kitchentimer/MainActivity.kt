@@ -1,19 +1,40 @@
 package com.example.kitchentimer
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
+    // Запрос разрешения на уведомления для Android 13+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -26,13 +47,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun TimerScreen() {
-    // Время, установленное пользователем (сохраняется между запусками)
+    val context = LocalContext.current
     var selectedTime by remember { mutableIntStateOf(60) }
-    // Время, которое меняется во время работы таймера
     var timeLeft by remember { mutableIntStateOf(selectedTime) }
     var isRunning by remember { mutableStateOf(false) }
 
-    // Синхронизируем timeLeft при изменении selectedTime, если таймер не запущен
     LaunchedEffect(selectedTime) {
         if (!isRunning) timeLeft = selectedTime
     }
@@ -41,8 +60,9 @@ fun TimerScreen() {
         if (isRunning && timeLeft > 0) {
             delay(1000L)
             timeLeft--
-        } else if (timeLeft == 0) {
+        } else if (isRunning && timeLeft == 0) {
             isRunning = false
+            showNotification(context)
         }
     }
 
@@ -59,13 +79,9 @@ fun TimerScreen() {
         Spacer(modifier = Modifier.height(32.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = { if (selectedTime > 30) selectedTime -= 30 }) {
-                Text("-30с")
-            }
+            Button(onClick = { if (selectedTime > 30) selectedTime -= 30 }) { Text("-30с") }
             Text("${selectedTime / 60}:${(selectedTime % 60).toString().padStart(2, '0')}")
-            Button(onClick = { selectedTime += 30 }) {
-                Text("+30с")
-            }
+            Button(onClick = { selectedTime += 30 }) { Text("+30с") }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -76,5 +92,26 @@ fun TimerScreen() {
         }) {
             Text(if (isRunning) "Пауза" else "Старт")
         }
+    }
+}
+
+fun showNotification(context: Context) {
+    val channelId = "timer_channel"
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(channelId, "Таймер", NotificationManager.IMPORTANCE_HIGH)
+        manager.createNotificationChannel(channel)
+    }
+
+    val builder = NotificationCompat.Builder(context, channelId)
+        .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+        .setContentTitle("Таймер завершен!")
+        .setContentText("Ваше время истекло.")
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setAutoCancel(true)
+
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+        NotificationManagerCompat.from(context).notify(1, builder.build())
     }
 }
